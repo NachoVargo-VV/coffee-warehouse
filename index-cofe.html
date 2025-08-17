@@ -101,21 +101,17 @@
     <div id="statsWater"></div>
   </div>
 
-  <!-- Точка: остатки и действия -->
+  <!-- Точка: Остатки + заявка -->
   <div id="view-point-stocks" class="card hidden">
-    <div class="section-title"><h3>Остатки склада</h3><div class="muted">общие</div></div>
+    <div class="section-title"><h3>Остатки склада</h3><div class="muted">видно остаток, укажите нужные количества к заявке</div></div>
+    <div class="toolbar">
+      <label>Дата заявки: <input id="reqDate" type="date"/></label>
+      <button id="sendReqBtn" class="btn ok">Отправить заявку</button>
+    </div>
     <div id="pointStocksTable"></div>
   </div>
 
-  <div id="view-point-request" class="card hidden">
-    <div class="section-title"><h3>Заявка на перемещение</h3><div class="muted">дата и количества</div></div>
-    <div class="toolbar">
-      <label>Дата: <input id="reqDate" type="date"/></label>
-      <button id="sendReqBtn" class="btn ok">Отправить заявку</button>
-    </div>
-    <div id="pointRequestForm"></div>
-  </div>
-
+  <!-- Точка: Вода -->
   <div id="view-point-water" class="card hidden">
     <div class="section-title"><h3>Заказ воды</h3><div class="muted">по точке</div></div>
     <div class="toolbar">
@@ -126,6 +122,7 @@
     <div id="pointWaterList"></div>
   </div>
 
+  <!-- Точка: Инкассация -->
   <div id="view-point-cash" class="card hidden">
     <div class="section-title"><h3>Инкассация</h3><div class="muted">точка вводит сумму</div></div>
     <div class="toolbar">
@@ -222,7 +219,6 @@
     if(id==="view-admin-cash") renderAdminCash();
     if(id==="view-admin-stats") renderAdminStats();
     if(id==="view-point-stocks") renderPointStocks();
-    if(id==="view-point-request") renderPointRequest();
     if(id==="view-point-water") renderPointWater();
     if(id==="view-point-cash") renderPointCash();
   }
@@ -267,17 +263,14 @@
       }).join("");
       qs("pointsTable").innerHTML=`<table><thead><tr><th>ID</th><th>Название</th><th>Адрес</th><th>Email</th><th>UID</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="muted">Нет точек</td></tr>`}</tbody></table>`;
 
-      // Редактировать
       qs("pointsTable").querySelectorAll("[data-editp]").forEach(b=>{
         b.onclick=()=>{
           const id=b.dataset.editp;
           const row = qs("pointsTable").querySelector(`[data-rowp="${id}"]`);
           row.querySelectorAll(`input[data-id="${id}"]`).forEach(inp=>inp.disabled=false);
-          row.querySelector(`[button][data-savep="${id}"]`)?.removeAttribute('disabled');
           row.querySelector(`[data-savep="${id}"]`)?.removeAttribute('disabled');
         };
       });
-      // Сохранить
       qs("pointsTable").querySelectorAll("[data-savep]").forEach(b=>{
         b.onclick=async ()=>{
           const id=b.dataset.savep;
@@ -289,7 +282,6 @@
           b.setAttribute('disabled','true');
         };
       });
-      // Удалить точку
       qs("pointsTable").querySelectorAll("[data-delp]").forEach(b=>{
         b.onclick=async ()=>{
           const id=b.dataset.delp;
@@ -301,7 +293,6 @@
   }
 
   async function renderAdminStocks(){
-    // Создать товар
     qs("addProductBtn").onclick = async ()=>{
       let sku=(qs("newSku").value||"").trim().toUpperCase();
       const name=(qs("newName").value||"").trim();
@@ -313,7 +304,6 @@
       await setDoc(ref,{ name, qty });
       ["newSku","newName","newQty"].forEach(id=>qs(id).value="");
     };
-    // Список
     state.unsub.push(onSnapshot(collection(db,"inventory"), snap=>{
       const rows=snap.docs.map(d=>{
         const p={sku:d.id,...d.data()};
@@ -334,7 +324,6 @@
       }).join("");
       qs("adminStocksTable").innerHTML=`<table><thead><tr><th>SKU</th><th>Наименование</th><th>Остаток</th><th>Пополнить</th><th>Списать</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="muted">Нет товаров</td></tr>`}</tbody></table>`;
 
-      // Редактировать имя
       qs("adminStocksTable").querySelectorAll("[data-editn]").forEach(b=>{
         b.onclick=()=>{
           const sku=b.dataset.editn;
@@ -343,7 +332,6 @@
           row.querySelector(`[data-saven="${sku}"]`)?.removeAttribute('disabled');
         };
       });
-      // Сохранить имя
       qs("adminStocksTable").querySelectorAll("[data-saven]").forEach(b=>{
         b.onclick=async ()=>{
           const sku=b.dataset.saven;
@@ -355,7 +343,6 @@
           b.setAttribute('disabled','true');
         };
       });
-      // Пополнение +
       qs("adminStocksTable").querySelectorAll("[data-inc]").forEach(b=>{
         b.onclick=async ()=>{
           const sku=b.dataset.inc;
@@ -370,7 +357,6 @@
           inp.value="";
         };
       });
-      // Списание -
       qs("adminStocksTable").querySelectorAll("[data-dec]").forEach(b=>{
         b.onclick=async ()=>{
           const sku=b.dataset.dec;
@@ -386,7 +372,6 @@
           inp.value="";
         };
       });
-      // Удаление товара
       qs("adminStocksTable").querySelectorAll("[data-del]").forEach(b=>{
         b.onclick=async ()=>{
           const sku=b.dataset.del;
@@ -520,7 +505,6 @@
     // вкладки точки
     const tabs=[
       {id:"view-point-stocks",title:"Остатки",active:true},
-      {id:"view-point-request",title:"Заявка"},
       {id:"view-point-water",title:"Вода"},
       {id:"view-point-cash",title:"Инкассация"},
     ];
@@ -528,26 +512,28 @@
     showView("view-point-stocks");
   }
 
+  // Остатки + форма заявки в одной таблице
   function renderPointStocks(){
-    state.unsub.push(onSnapshot(collection(db,"inventory"), snap=>{
-      const rows=snap.docs.map(d=>{ const p={sku:d.id,...d.data()}; return `<tr><td>${p.sku}</td><td>${p.name}</td><td>${fmt(p.qty)}</td></tr>`; }).join("");
-      qs("pointStocksTable").innerHTML=`<table><thead><tr><th>SKU</th><th>Наименование</th><th>Доступно</th></tr></thead><tbody>${rows||`<tr><td colspan="3" class="muted">Нет товаров</td></tr>`}</tbody></table>`;
-    }));
-  }
-
-  function renderPointRequest(){
     if(!qs("reqDate").value) qs("reqDate").value=today();
     state.unsub.push(onSnapshot(collection(db,"inventory"), snap=>{
       const rows=snap.docs.map(d=>{
         const p={sku:d.id,...d.data()};
-        return `<tr><td>${p.sku}</td><td>${p.name}</td><td>${fmt(p.qty)}</td><td><input type="number" min="0" max="${p.qty}" value="0" data-sku="${p.sku}" style="width:90px"/></td></tr>`;
+        return `<tr>
+          <td>${p.sku}</td>
+          <td>${p.name}</td>
+          <td>${fmt(p.qty)}</td>
+          <td><input type="number" min="0" max="${p.qty}" value="0" data-req="${p.sku}" style="width:90px"/></td>
+        </tr>`;
       }).join("");
-      qs("pointRequestForm").innerHTML=`<table><thead><tr><th>SKU</th><th>Наименование</th><th>Доступно</th><th>К заявке</th></tr></thead><tbody>${rows}</tbody></table>`;
+      qs("pointStocksTable").innerHTML=`<table>
+        <thead><tr><th>SKU</th><th>Наименование</th><th>Доступно</th><th>К заявке</th></tr></thead>
+        <tbody>${rows||`<tr><td colspan="4" class="muted">Нет товаров</td></tr>`}</tbody>
+      </table>`;
     }));
-    qs("sendReqBtn").onclick=async ()=>{
-      const date=qs("reqDate").value||today();
-      const inputs=[...qs("pointRequestForm").querySelectorAll("input[type='number']")];
-      const items=inputs.map(inp=>({ sku:inp.dataset.sku, qty:Math.max(0, Math.floor(Number(inp.value||0))) })).filter(x=>x.qty>0);
+    qs("sendReqBtn").onclick = async ()=>{
+      const date = qs("reqDate").value || today();
+      const inputs = [...document.querySelectorAll('[data-req]')];
+      const items = inputs.map(inp=>({ sku:inp.dataset.req, qty:Math.max(0, Math.floor(Number(inp.value||0))) })).filter(x=>x.qty>0);
       if(!items.length) return alert("Укажите количества хотя бы по одному товару");
       await addDoc(collection(db,"transfers"), {
         date, items, status:"Новая",
@@ -555,7 +541,7 @@
         createdAt: Date.now()
       });
       alert("Заявка отправлена");
-      renderPointRequest();
+      renderPointStocks();
     };
   }
 
