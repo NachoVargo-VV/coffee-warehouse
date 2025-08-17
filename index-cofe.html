@@ -13,13 +13,14 @@
   .brand{font-weight:700;font-size:18px;padding:10px 14px;border-radius:10px;background:linear-gradient(135deg,#2b2f59,#20244a);border:1px solid var(--border)}
   nav{display:flex;gap:6px;flex-wrap:wrap;background:rgba(17,20,40,.6);border:1px solid var(--border);border-radius:12px;padding:6px}
   .tab{border:1px solid transparent;background:transparent;color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer;transition:.15s;font-weight:600}
-  .tab:hover{background:rgba(255,255,255,.04)} .tab.active{background:var(--chip);border-color:var(--border)}
+  .tab:hover{background:rgba(255,255,255,.04)} .tab.active{背景:var(--chip);border-color:var(--border);background:var(--chip)}
   .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px;background:var(--chip);border:1px solid var(--border)}
   .card{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,0));border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.04)}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 10px}
   .btn{border:1px solid var(--border);color:var(--text);background:linear-gradient(180deg,#29305b,#1e2348);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600;transition:.15s}
   .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.25)} .btn.ghost{background:rgba(255,255,255,.02)}
-  .btn.ok{background:linear-gradient(180deg,#2bc877,#1ea35e);border-color:rgba(40,199,111,.5)} .btn.warn{background:linear-gradient(180deg,#ffb463,#f39b3a)}
+  .btn.ok{background:linear-gradient(180deg,#2bc877,#1ea35e);border-color:rgba(40,199,111,.5)}
+  .btn.warn{background:linear-gradient(180deg,#ffb463,#f39b3a)}
   select,input[type="text"],input[type="password"],input[type="number"],input[type="date"],input[type="email"]{background:rgba(255,255,255,.04);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 10px;outline:none}
   select:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(110,168,254,.15)}
   table{width:100%;border-collapse:collapse;border-spacing:0;font-size:14px;background:rgba(10,12,28,.4);border:1px solid var(--border);border-radius:12px;overflow:hidden}
@@ -64,7 +65,7 @@
 
   <!-- Админ: остатки -->
   <div id="view-admin-stocks" class="card hidden">
-    <div class="section-title"><h3>Остатки склада</h3><div class="muted">создание, пополнение и удаление товара</div></div>
+    <div class="section-title"><h3>Остатки склада</h3><div class="muted">создание, пополнение, списание и удаление</div></div>
     <div class="toolbar">
       <input id="newSku" type="text" placeholder="SKU (уникальный)"/>
       <input id="newName" type="text" placeholder="Наименование"/>
@@ -154,7 +155,7 @@
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-    onSnapshot, query, where, orderBy, writeBatch, runTransaction
+    onSnapshot, query, where, orderBy, runTransaction
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const app = initializeApp(firebaseConfig);
@@ -257,7 +258,10 @@
           <td><input data-id="${p.id}" data-k="address" value="${p.address||""}"/></td>
           <td>${p.email||""}</td>
           <td class="muted">${p.uid||""}</td>
-          <td style="text-align:right;"><button class="btn ghost" data-save="${p.id}">Сохранить</button></td>
+          <td style="text-align:right;">
+            <button class="btn ghost" data-save="${p.id}">Сохранить</button>
+            <button class="btn warn" data-delp="${p.id}">Удалить</button>
+          </td>
         </tr>`;
       }).join("");
       qs("pointsTable").innerHTML=`<table><thead><tr><th>ID</th><th>Название</th><th>Адрес</th><th>Email</th><th>UID</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="muted">Нет точек</td></tr>`}</tbody></table>`;
@@ -267,6 +271,13 @@
           const inputs=[...qs("pointsTable").querySelectorAll(`[data-id="${id}"]`)];
           const upd={}; inputs.forEach(i=>upd[i.dataset.k]=i.value.trim());
           await updateDoc(doc(db,"points",id),upd);
+        };
+      });
+      qs("pointsTable").querySelectorAll("[data-delp]").forEach(b=>{
+        b.onclick=async ()=>{
+          const id=b.dataset.delp;
+          if(!confirm("Удалить точку и её карточку?")) return;
+          await deleteDoc(doc(db,"points",id));
         };
       });
     }));
@@ -294,14 +305,16 @@
           <td><input data-sku="${p.sku}" data-k="name" value="${p.name||""}"/></td>
           <td>${fmt(p.qty||0)}</td>
           <td><input type="number" min="0" step="1" style="width:100px" placeholder="+ Приход" data-add="${p.sku}"/></td>
+          <td><input type="number" min="0" step="1" style="width:100px" placeholder="- Списание" data-sub="${p.sku}"/></td>
           <td style="text-align:right;">
             <button class="btn ghost" data-save="${p.sku}">Сохранить</button>
             <button class="btn ok" data-inc="${p.sku}">Приход</button>
-            <button class="btn warn" data-del="${p.sku}">Удалить</button>
+            <button class="btn warn" data-dec="${p.sku}">Списать</button>
+            <button class="btn ghost" data-del="${p.sku}">Удалить</button>
           </td>
         </tr>`;
       }).join("");
-      qs("adminStocksTable").innerHTML=`<table><thead><tr><th>SKU</th><th>Наименование</th><th>Остаток</th><th>Пополнить</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="muted">Нет товаров</td></tr>`}</tbody></table>`;
+      qs("adminStocksTable").innerHTML=`<table><thead><tr><th>SKU</th><th>Наименование</th><th>Остаток</th><th>Пополнить</th><th>Списать</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="muted">Нет товаров</td></tr>`}</tbody></table>`;
       // Сохранить имя
       qs("adminStocksTable").querySelectorAll("[data-save]").forEach(b=>{
         b.onclick=async ()=>{
@@ -311,7 +324,7 @@
           await updateDoc(doc(db,"inventory",sku),upd);
         };
       });
-      // Пополнение
+      // Пополнение +
       qs("adminStocksTable").querySelectorAll("[data-inc]").forEach(b=>{
         b.onclick=async ()=>{
           const sku=b.dataset.inc;
@@ -322,6 +335,22 @@
           const snap=await getDoc(ref);
           if(!snap.exists()) return;
           const qty=Number(snap.data().qty||0)+add;
+          await updateDoc(ref,{qty});
+          inp.value="";
+        };
+      });
+      // Списание -
+      qs("adminStocksTable").querySelectorAll("[data-dec]").forEach(b=>{
+        b.onclick=async ()=>{
+          const sku=b.dataset.dec;
+          const inp=qs("adminStocksTable").querySelector(`[data-sub="${sku}"]`);
+          const sub=Math.max(0, Math.floor(Number(inp.value||0)));
+          if(sub<=0) return alert("Укажите количество > 0");
+          const ref=doc(db,"inventory",sku);
+          const snap=await getDoc(ref);
+          if(!snap.exists()) return;
+          const cur=Number(snap.data().qty||0);
+          const qty=Math.max(0, cur - sub);
           await updateDoc(ref,{qty});
           inp.value="";
         };
@@ -398,12 +427,12 @@
       const rows=snap.docs.map(d=>{
         const c={id:d.id,...d.data()};
         const diff=((Number(c.meter||0)-Number(c.reported||0))||0).toFixed(2);
-        const cls=Math.abs(diff)<0.01?"ok":(diff>0?"warn":"bad");
+        const cls=Math.abs(diff)<0.01?"ок":(diff>0?"warn":"bad");
         return `<tr>
           <td>${c.id}</td><td class="muted">${c.date}</td><td>${c.pointName||c.pointEmail||""}</td>
           <td>${Number(c.reported||0).toFixed(2)}</td>
           <td><input type="number" step="0.01" style="width:120px" data-mid="${c.id}" value="${c.meter??''}" placeholder="По метрешке"/></td>
-          <td class="status ${cls}">${diff}</td>
+          <td class="status ${Math.abs(diff)<0.01?'ok':(diff>0?'warn':'bad')}">${diff}</td>
         </tr>`;
       }).join("");
       qs("adminCashTable").innerHTML=`<table><thead><tr><th>№</th><th>Дата</th><th>Точка</th><th>Отчет точки ₽</th><th>По метрешке ₽</th><th>Разница</th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="muted">Нет данных</td></tr>`}</tbody></table>`;
