@@ -39,6 +39,7 @@
     <button id="logoutBtn" class="btn ghost hidden">Выйти</button>
   </header>
 
+  <!-- Вход -->
   <div id="view-login" class="card login-box">
     <h3>Вход</h3>
     <div class="toolbar">
@@ -46,46 +47,52 @@
       <input id="passInput" type="password" placeholder="Пароль"/>
       <button id="loginBtn" class="btn ok">Войти</button>
     </div>
-    
+    <div class="muted small">Админ и точки входят по email/паролю (создаются в консоли Firebase).</div>
+  </div>
 
+  <!-- Админ: автоматы -->
   <div id="view-admin-points" class="card hidden">
     <div class="section-title"><h3>Кофе-автоматы (точки)</h3><div class="muted">добавление, адреса</div></div>
     <div class="toolbar">
       <input id="pName" type="text" placeholder="Название точки"/>
       <input id="pAddr" type="text" placeholder="Адрес"/>
-      <input id="pEmail" type="email" placeholder="Email точки"/>
+      <input id="pEmail" type="email" placeholder="Email точки (должен существовать в Auth)"/>
       <button id="addPointBtn" class="btn ok">Добавить</button>
     </div>
     <div id="pointsTable"></div>
   </div>
 
+  <!-- Админ: остатки -->
   <div id="view-admin-stocks" class="card hidden">
-    <div class="section-title"><h3>Остатки склада</h3><div class="muted">создание товара и пополнение</div></div>
+    <div class="section-title"><h3>Остатки склада</h3><div class="muted">создание, пополнение и удаление товара</div></div>
     <div class="toolbar">
       <input id="newSku" type="text" placeholder="SKU (уникальный)"/>
       <input id="newName" type="text" placeholder="Наименование"/>
-      <input id="newPrice" type="number" min="0" step="0.01" placeholder="Цена ₽" style="width:140px"/>
       <input id="newQty" type="number" min="0" step="1" placeholder="Нач. остаток" style="width:140px"/>
       <button id="addProductBtn" class="btn ok">Создать товар</button>
     </div>
     <div id="adminStocksTable"></div>
   </div>
 
+  <!-- Админ: заявки -->
   <div id="view-admin-requests" class="card hidden">
     <div class="section-title"><h3>Заявки на перемещение</h3><div class="muted">подтверждение и списание</div></div>
     <div id="adminRequestsTable"></div>
   </div>
 
+  <!-- Админ: вода -->
   <div id="view-admin-water" class="card hidden">
     <div class="section-title"><h3>Заказы воды</h3><div class="muted">по точкам</div></div>
     <div id="adminWaterTable"></div>
   </div>
 
+  <!-- Админ: инкассации -->
   <div id="view-admin-cash" class="card hidden">
     <div class="section-title"><h3>Инкассации</h3><div class="muted">сравнение с метрешкой</div></div>
     <div id="adminCashTable"></div>
   </div>
 
+  <!-- Админ: статистика -->
   <div id="view-admin-stats" class="card hidden">
     <div class="section-title"><h3>Статистика</h3><div class="muted">перемещения и вода по датам</div></div>
     <div id="statsTransfers"></div>
@@ -93,6 +100,7 @@
     <div id="statsWater"></div>
   </div>
 
+  <!-- Точка: остатки и действия -->
   <div id="view-point-stocks" class="card hidden">
     <div class="section-title"><h3>Остатки склада</h3><div class="muted">общие</div></div>
     <div id="pointStocksTable"></div>
@@ -145,7 +153,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
-    getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
+    getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
     onSnapshot, query, where, orderBy, writeBatch, runTransaction
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -265,42 +273,45 @@
   }
 
   async function renderAdminStocks(){
+    // Создать товар
     qs("addProductBtn").onclick = async ()=>{
       let sku=(qs("newSku").value||"").trim().toUpperCase();
       const name=(qs("newName").value||"").trim();
-      const price=Math.max(0, Number(qs("newPrice").value||0));
       const qty=Math.max(0, Math.floor(Number(qs("newQty").value||0)));
       if(!sku||!name) return alert("Заполните SKU и наименование");
       const ref=doc(db,"inventory",sku);
       const exists=await getDoc(ref);
       if(exists.exists()) return alert("SKU уже существует");
-      await setDoc(ref,{ name, price, qty });
-      ["newSku","newName","newPrice","newQty"].forEach(id=>qs(id).value="");
+      await setDoc(ref,{ name, qty });
+      ["newSku","newName","newQty"].forEach(id=>qs(id).value="");
     };
+    // Список
     state.unsub.push(onSnapshot(collection(db,"inventory"), snap=>{
       const rows=snap.docs.map(d=>{
         const p={sku:d.id,...d.data()};
         return `<tr>
           <td>${p.sku}</td>
-          <td><input data-sku="${p.sku}" data-k="name" value="${p.name}"/></td>
-          <td><input type="number" min="0" step="0.01" style="width:120px" data-sku="${p.sku}" data-k="price" value="${p.price}"/></td>
-          <td>${fmt(p.qty)}</td>
+          <td><input data-sku="${p.sku}" data-k="name" value="${p.name||""}"/></td>
+          <td>${fmt(p.qty||0)}</td>
           <td><input type="number" min="0" step="1" style="width:100px" placeholder="+ Приход" data-add="${p.sku}"/></td>
           <td style="text-align:right;">
             <button class="btn ghost" data-save="${p.sku}">Сохранить</button>
             <button class="btn ok" data-inc="${p.sku}">Приход</button>
+            <button class="btn warn" data-del="${p.sku}">Удалить</button>
           </td>
         </tr>`;
       }).join("");
-      qs("adminStocksTable").innerHTML=`<table><thead><tr><th>SKU</th><th>Наименование</th><th>Цена ₽</th><th>Остаток</th><th>Пополнить</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="muted">Нет товаров</td></tr>`}</tbody></table>`;
+      qs("adminStocksTable").innerHTML=`<table><thead><tr><th>SKU</th><th>Наименование</th><th>Остаток</th><th>Пополнить</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="muted">Нет товаров</td></tr>`}</tbody></table>`;
+      // Сохранить имя
       qs("adminStocksTable").querySelectorAll("[data-save]").forEach(b=>{
         b.onclick=async ()=>{
           const sku=b.dataset.save;
           const inputs=[...qs("adminStocksTable").querySelectorAll(`[data-sku="${sku}"]`)];
-          const upd={}; inputs.forEach(i=>{ upd[i.dataset.k]= i.dataset.k==="price"?Math.max(0,Number(i.value||0)):i.value.trim(); });
+          const upd={}; inputs.forEach(i=>{ if(i.dataset.k==="name") upd.name=i.value.trim(); });
           await updateDoc(doc(db,"inventory",sku),upd);
         };
       });
+      // Пополнение
       qs("adminStocksTable").querySelectorAll("[data-inc]").forEach(b=>{
         b.onclick=async ()=>{
           const sku=b.dataset.inc;
@@ -313,6 +324,14 @@
           const qty=Number(snap.data().qty||0)+add;
           await updateDoc(ref,{qty});
           inp.value="";
+        };
+      });
+      // Удаление товара
+      qs("adminStocksTable").querySelectorAll("[data-del]").forEach(b=>{
+        b.onclick=async ()=>{
+          const sku=b.dataset.del;
+          if(!confirm(`Удалить товар ${sku}? Действие необратимо.`)) return;
+          await deleteDoc(doc(db,"inventory",sku));
         };
       });
     }));
