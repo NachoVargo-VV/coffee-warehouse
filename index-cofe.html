@@ -52,7 +52,7 @@
     <div class="muted small">Админ и точки входят по email/паролю (создаются в консоли Firebase).</div>
   </div>
 
-  <!-- Админ: автоматы -->
+  <!-- Админ: точки -->
   <div id="view-admin-points" class="card hidden">
     <div class="section-title"><h3>Кофе-автоматы (точки)</h3><div class="muted">добавление, адреса</div></div>
     <div class="toolbar">
@@ -78,14 +78,9 @@
 
   <!-- Админ: заявки -->
   <div id="view-admin-requests" class="card hidden">
-    <div class="section-title">
-      <h3>Заявки на перемещение</h3>
-      <div class="muted">подтверждение и списание</div>
-    </div>
+    <div class="section-title"><h3>Заявки на перемещение</h3><div class="muted">подтверждение и списание</div></div>
     <div class="toolbar">
-      <label>Точка:
-        <select id="reqPointFilter"><option value="">Все</option></select>
-      </label>
+      <label>Точка: <select id="reqPointFilter"><option value="">Все</option></select></label>
     </div>
     <div id="adminRequestsTable"></div>
   </div>
@@ -94,20 +89,16 @@
   <div id="view-admin-water" class="card hidden">
     <div class="section-title"><h3>Заказы воды</h3><div class="muted">по точкам</div></div>
     <div class="toolbar">
-      <label>Точка:
-        <select id="waterPointFilter"><option value="">Все</option></select>
-      </label>
+      <label>Точка: <select id="waterPointFilter"><option value="">Все</option></select></label>
     </div>
     <div id="adminWaterTable"></div>
   </div>
 
-  <!-- Админ: инкасации -->
+  <!-- Админ: инкассации -->
   <div id="view-admin-cash" class="card hidden">
-    <div class="section-title"><h3>Инкасации</h3><div class="muted">сравнение с метрешкой</div></div>
+    <div class="section-title"><h3>Инкассации</h3><div class="muted">сравнение с метрешкой</div></div>
     <div class="toolbar">
-      <label>Точка:
-        <select id="cashPointFilter"><option value="">Все</option></select>
-      </label>
+      <label>Точка: <select id="cashPointFilter"><option value="">Все</option></select></label>
     </div>
     <div id="adminCashTable"></div>
   </div>
@@ -115,11 +106,7 @@
   <!-- Админ: история -->
   <div id="view-admin-history" class="card hidden">
     <div class="section-title"><h3>История событий</h3><div class="muted">приход/списание, заявки, вода, инкассации, изменения</div></div>
-    <div class="toolbar">
-      <label>Точка:
-        <select id="histPointFilter"><option value="">Все</option></select>
-      </label>
-    </div>
+    <div class="toolbar"><label>Точка: <select id="histPointFilter"><option value="">Все</option></select></label></div>
     <div id="adminHistoryTable"></div>
   </div>
 
@@ -127,9 +114,7 @@
   <div id="view-admin-stats" class="card hidden">
     <div class="section-title"><h3>Статистика</h3><div class="muted">перемещения и вода</div></div>
     <div class="toolbar">
-      <label>Точка:
-        <select id="statsPointFilter"><option value="">Все</option></select>
-      </label>
+      <label>Точка: <select id="statsPointFilter"><option value="">Все</option></select></label>
       <label>Период:
         <select id="statsPeriod">
           <option value="today">Сегодня</option>
@@ -149,7 +134,7 @@
 
   <!-- Точка: Остатки + заявка -->
   <div id="view-point-stocks" class="card hidden">
-    <div class="section-title"><h3>Остатки склада</h3><div class="muted">видно остаток, укажите нужные количества к заявке</div></div>
+    <div class="section-title"><h3>Остатки склада</h3><div class="muted">укажите количества к заявке</div></div>
     <div class="toolbar">
       <label>Дата заявки: <input id="reqDate" type="date"/></label>
       <button id="sendReqBtn" class="btn ok">Отправить заявку</button>
@@ -181,7 +166,6 @@
 </div>
 
 <script type="module">
-  // 1) Настройки
   const ADMIN_EMAIL = "vtumanevlad@mail.ru";
   const firebaseConfig = {
     apiKey: "AIzaSyDCy0hflpGk9yrgWwErEkZlM1F5UYYa-KU",
@@ -193,7 +177,6 @@
     measurementId: "G-F9S09RBB4P"
   };
 
-  // 2) Firebase
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
@@ -205,7 +188,6 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // 3) Утилиты
   const qs = id => document.getElementById(id);
   const fmt = n => Number(n).toLocaleString("ru-RU");
   const today = () => new Date().toISOString().slice(0,10);
@@ -213,59 +195,14 @@
 
   const state = { user:null, isAdmin:false, myPoint:null, unsub:[], points:[] };
   function clearSubs(){ state.unsub.forEach(u=>u&&u()); state.unsub=[]; }
+  async function logEvent(type, data={}){ try { await addDoc(collection(db,"logs"), { type, at: Date.now(), atISO: nowISO(), by: auth.currentUser?.email||"", ...data }); } catch(e){} }
 
-  async function logEvent(type, data={}){ try {
-    await addDoc(collection(db,"logs"), { type, at: Date.now(), atISO: nowISO(), by: auth.currentUser?.email||"", ...data });
-  } catch(e){} }
-
-  function periodToRange(kind){
-    const d = new Date(); const to = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    let from = new Date(to);
-    if(kind==="today"){ /* today */ }
-    else if(kind==="yesterday"){ from.setDate(from.getDate()-1); to.setDate(to.getDate()-1); }
-    else if(kind==="week"){ from.setDate(from.getDate()-6); }
-    else if(kind==="month"){ from.setDate(1); }
-    return { from: from.toISOString().slice(0,10), to: to.toISOString().slice(0,10) };
-  }
-
-  // 5) Аутентификация
-  qs("loginBtn").onclick = async () => {
-    const email=(qs("emailInput").value||"").trim();
-    const pass=(qs("passInput").value||"").trim();
-    if(!email||!pass) return alert("Введите email и пароль");
-    try { await signInWithEmailAndPassword(auth,email,pass); }
-    catch(e){ alert("Ошибка входа: "+e.message); }
-  };
-  qs("logoutBtn").onclick = async () => { await signOut(auth); };
-
-  onAuthStateChanged(auth, async (user)=>{
-    clearSubs();
-    document.querySelectorAll("[id^='view-']").forEach(el=>el.classList.add("hidden"));
-    if(!user){
-      state.user=null; state.isAdmin=false; state.myPoint=null;
-      ["nav","logoutBtn","roleBadge","pointBadge"].forEach(id=>qs(id).classList.add("hidden"));
-      qs("view-login").classList.remove("hidden");
-      return;
-    }
-    state.user=user;
-    state.isAdmin = (user.email||"").toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    qs("nav").classList.remove("hidden");
-    qs("logoutBtn").classList.remove("hidden");
-    qs("roleBadge").classList.remove("hidden");
-    qs("roleLabel").textContent = state.isAdmin ? "Склад (админ)" : "Кофе-автомат";
-    if (state.isAdmin) showAdmin(); else await showPoint(user);
-  });
-
-  // 6) Навигация
   function renderNav(tabs){
     const nav=qs("nav");
     nav.innerHTML=tabs.map(t=>`<button class="tab ${t.active?'active':''}" data-id="${t.id}">${t.title}</button>`).join("");
+    nav.classList.remove("hidden");
     nav.querySelectorAll("button").forEach(b=>{
-      b.onclick=()=>{
-        tabs.forEach(t=>t.active=(t.id===b.dataset.id));
-        renderNav(tabs);
-        showView(tabs.find(t=>t.active).id);
-      };
+      b.onclick=()=>{ tabs.forEach(t=>t.active=(t.id===b.dataset.id)); renderNav(tabs); showView(tabs.find(t=>t.active).id); };
     });
   }
   function showView(id){
@@ -284,33 +221,95 @@
     if(id==="view-point-cash") renderPointCash();
   }
 
-  // 7) Админ
-  function showAdmin(){
-    qs("pointBadge").classList.add("hidden");
-    // кэшируем точки для фильтров
-    state.unsub.push(onSnapshot(collection(db,"points"), snap=>{
-      state.points = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-    }));
-    const tabs=[
-      {id:"view-admin-points",title:"Кофе-автоматы",active:true},
-      {id:"view-admin-stocks",title:"Остатки"},
-      {id:"view-admin-requests",title:"Заявки"},
-      {id:"view-admin-water",title:"Вода"},
-      {id:"view-admin-cash",title:"Инкассации"},
-      {id:"view-admin-history",title:"История"},
-      {id:"view-admin-stats",title:"Статистика"},
-    ];
-    renderNav(tabs);
-    showView("view-admin-points");
+  // загрузим список точек для фильтров
+  onSnapshot(collection(db,"points"), snap=>{
+    state.points = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  });
+
+  // Аутентификация
+  qs("loginBtn").onclick = async () => {
+    const email=(qs("emailInput").value||"").trim();
+    const pass=(qs("passInput").value||"").trim();
+    if(!email||!pass) return alert("Введите email и пароль");
+    try { await signInWithEmailAndPassword(auth,email,pass); } catch(e){ alert("Ошибка входа: "+e.message); }
+  };
+  qs("logoutBtn").onclick = async () => { await signOut(auth); };
+
+  onAuthStateChanged(auth, async (user)=>{
+    clearSubs();
+    document.querySelectorAll("[id^='view-']").forEach(el=>el.classList.add("hidden"));
+    if(!user){
+      state.user=null; state.isAdmin=false; state.myPoint=null;
+      ["nav","logoutBtn","roleBadge","pointBadge"].forEach(id=>qs(id).classList.add("hidden"));
+      qs("view-login").classList.remove("hidden");
+      return;
+    }
+    state.user=user;
+    state.isAdmin = (user.email||"").toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    qs("logoutBtn").classList.remove("hidden");
+    qs("roleBadge").classList.remove("hidden");
+    qs("roleLabel").textContent = state.isAdmin ? "Склад (админ)" : "Кофе-автомат";
+
+    if (state.isAdmin) {
+      const tabs=[
+        {id:"view-admin-points",title:"Кофе-автоматы",active:true},
+        {id:"view-admin-stocks",title:"Остатки"},
+        {id:"view-admin-requests",title:"Заявки"},
+        {id:"view-admin-water",title:"Вода"},
+        {id:"view-admin-cash",title:"Инкассации"},
+        {id:"view-admin-history",title:"История"},
+        {id:"view-admin-stats",title:"Статистика"},
+      ];
+      renderNav(tabs);
+      showView("view-admin-points");
+    } else {
+      // показываем вкладки сразу (чтобы UI не "пустовал")
+      const tabs=[
+        {id:"view-point-stocks",title:"Остатки",active:true},
+        {id:"view-point-water",title:"Вода"},
+        {id:"view-point-cash",title:"Инкассация"},
+      ];
+      renderNav(tabs);
+      showView("view-point-stocks");
+      // асинхронно инициализируем точку
+      initPoint(user);
+    }
+  });
+
+  async function initPoint(user){
+    try {
+      const q1=query(collection(db,"points"), where("email","==",(user.email||"").toLowerCase()));
+      const snap=await getDocs(q1);
+      let point=null;
+      if(snap.empty){
+        const ref=await addDoc(collection(db,"points"), { email:(user.email||"").toLowerCase(), uid:user.uid, name:"", address:"" });
+        point={ id:ref.id, email:user.email, uid:user.uid, name:"", address:"" };
+      } else {
+        const d=snap.docs[0];
+        point={ id:d.id, ...d.data() };
+        if(!point.uid) await updateDoc(doc(db,"points",point.id),{ uid:user.uid });
+      }
+      state.myPoint=point;
+      qs("pointBadge").classList.remove("hidden");
+      qs("pointLabel").textContent = point.name || point.email || "(точка)";
+    } catch(e) {
+      console.warn("initPoint error", e);
+    }
   }
 
-  function fillPointFilter(selId){
-    const sel=qs(selId); if(!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = `<option value="">Все</option>` + state.points.map(p=>`<option value="${p.id}">${p.name||p.email||p.id}</option>`).join("");
-    if (cur) sel.value = cur;
+  function toggleRowEdit(row, type, id, on){
+    if(type==="point"){
+      row.querySelectorAll(`input[data-id="${id}"]`).forEach(inp=>inp.disabled=!on);
+      row.querySelector(`[data-editp="${id}"]`)?.classList.toggle('hidden', on);
+      row.querySelector(`[data-savep="${id}"]`)?.classList.toggle('hidden', !on);
+    } else if(type==="inv"){
+      row.querySelectorAll(`input[data-sku="${id}"]`).forEach(inp=>inp.disabled=!on);
+      row.querySelector(`[data-editn="${id}"]`)?.classList.toggle('hidden', on);
+      row.querySelector(`[data-saven="${id}"]`)?.classList.toggle('hidden', !on);
+    }
   }
 
+  // Админ: точки
   async function renderAdminPoints(){
     qs("addPointBtn").onclick = async ()=>{
       const name=qs("pName").value.trim(), addr=qs("pAddr").value.trim(), email=(qs("pEmail").value||"").trim().toLowerCase();
@@ -331,7 +330,7 @@
           <td class="muted">${p.uid||""}</td>
           <td style="text-align:right;">
             <button class="btn ghost" data-editp="${p.id}">Редактировать</button>
-            <button class="btn ok" data-savep="${p.id}" disabled>Сохранить</button>
+            <button class="btn ok hidden" data-savep="${p.id}">Сохранить</button>
             <button class="btn bad" data-delp="${p.id}">Удалить</button>
           </td>
         </tr>`;
@@ -342,8 +341,7 @@
         b.onclick=()=>{
           const id=b.dataset.editp;
           const row = qs("pointsTable").querySelector(`[data-rowp="${id}"]`);
-          row.querySelectorAll(`input[data-id="${id}"]`).forEach(inp=>inp.disabled=false);
-          row.querySelector(`[data-savep="${id}"]`)?.removeAttribute('disabled');
+          toggleRowEdit(row,"point",id,true);
         };
       });
       qs("pointsTable").querySelectorAll("[data-savep]").forEach(b=>{
@@ -354,9 +352,7 @@
           const upd={}; inputs.forEach(i=>upd[i.dataset.k]=i.value.trim());
           await updateDoc(doc(db,"points",id),upd);
           await logEvent("point.update",{ pointId:id, ...upd });
-          inputs.forEach(i=>i.disabled=true);
-          b.setAttribute('disabled','true');
-          // снова доступно "Редактировать" (оно всегда видно)
+          toggleRowEdit(row,"point",id,false);
         };
       });
       qs("pointsTable").querySelectorAll("[data-delp]").forEach(b=>{
@@ -370,6 +366,7 @@
     }));
   }
 
+  // Админ: остатки
   async function renderAdminStocks(){
     qs("addProductBtn").onclick = async ()=>{
       let sku=(qs("newSku").value||"").trim().toUpperCase();
@@ -394,7 +391,7 @@
           <td><input type="number" min="0" step="1" style="width:100px" placeholder="- Списание" data-sub="${p.sku}"/></td>
           <td style="text-align:right;">
             <button class="btn ghost" data-editn="${p.sku}">Редактировать</button>
-            <button class="btn ok" data-saven="${p.sku}" disabled>Сохранить</button>
+            <button class="btn ok hidden" data-saven="${p.sku}">Сохранить</button>
             <button class="btn ok" data-inc="${p.sku}">Приход</button>
             <button class="btn warn" data-dec="${p.sku}">Списать</button>
             <button class="btn bad" data-del="${p.sku}">Удалить</button>
@@ -407,8 +404,7 @@
         b.onclick=()=>{
           const sku=b.dataset.editn;
           const row=qs("adminStocksTable").querySelector(`[data-rowi="${sku}"]`);
-          row.querySelectorAll(`input[data-sku="${sku}"]`).forEach(inp=>inp.disabled=false);
-          row.querySelector(`[data-saven="${sku}"]`)?.removeAttribute('disabled');
+          toggleRowEdit(row,"inv",sku,true);
         };
       });
       qs("adminStocksTable").querySelectorAll("[data-saven]").forEach(b=>{
@@ -419,8 +415,7 @@
           const upd={}; inputs.forEach(i=>{ if(i.dataset.k==="name") upd.name=i.value.trim(); });
           await updateDoc(doc(db,"inventory",sku),upd);
           await logEvent("inventory.update",{ sku, ...upd });
-          inputs.forEach(i=>i.disabled=true);
-          b.setAttribute('disabled','true');
+          toggleRowEdit(row,"inv",sku,false);
         };
       });
       qs("adminStocksTable").querySelectorAll("[data-inc]").forEach(b=>{
@@ -463,17 +458,32 @@
     }));
   }
 
+  function fillPointFilter(selId){
+    const sel=qs(selId); if(!sel) return;
+    const keep = sel.value;
+    sel.innerHTML = `<option value="">Все</option>` + state.points.map(p=>`<option value="${p.id}">${p.name||p.email||p.id}</option>`).join("");
+    if (keep) sel.value = keep;
+  }
+
+  // Админ: заявки (с фильтром)
   function renderAdminRequests(){
     fillPointFilter("reqPointFilter");
     const sel = qs("reqPointFilter");
-    const render = (docs)=>{
+    let current = [];
+    // inventory map для названий по SKU
+    const invMap = {};
+    const unsubInv = onSnapshot(collection(db,"inventory"), s=>{ s.docs.forEach(d=>invMap[d.id]=d.data().name); render(); });
+    const unsub = onSnapshot(query(collection(db,"transfers"), orderBy("date","desc")), snap=>{ current = snap.docs.map(d=>({ id:d.id, ...d.data() })); render(); });
+    state.unsub.push(unsub, unsubInv);
+    sel.onchange = render;
+
+    function render(){
+      fillPointFilter("reqPointFilter");
       const pid = sel.value;
-      const list = docs
-        .map(d=>({ id:d.id, ...d.data() }))
-        .filter(t=>!pid || t.pointId===pid)
-        .sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+      const list = current.filter(t=>!pid || t.pointId===pid);
       const rows=list.map(t=>{
-        const lines=(t.items||[]).map(i=>`${i.name||i.sku} × ${i.qty}`).join(", ");
+        // покажем названия
+        const lines=(t.items||[]).map(i=>`${i.name || invMap[i.sku] || i.sku} × ${i.qty}`).join(", ");
         const cls=t.status==="Принято"?"ok":"warn";
         return `<tr>
           <td class="muted">${t.date}</td>
@@ -486,10 +496,7 @@
       }).join("");
       qs("adminRequestsTable").innerHTML=`<table><thead><tr><th>Дата</th><th>Точка</th><th>Строк</th><th>Состав</th><th>Статус</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="muted">Заявок нет</td></tr>`}</tbody></table>`;
       qs("adminRequestsTable").querySelectorAll("[data-acc]").forEach(b=>{ b.onclick=()=>acceptTransfer(b.dataset.acc); });
-    };
-    const unsub = onSnapshot(query(collection(db,"transfers"), orderBy("date","desc")), snap=>render(snap.docs));
-    state.unsub.push(unsub);
-    sel.onchange = ()=>{ /* перерисуется при следующем снапшоте, поэтому просто триггер */ };
+    }
   }
 
   async function acceptTransfer(id){
@@ -509,20 +516,23 @@
         trx.update(iRef,{ qty: Math.max(0, cur - dec) });
       }
       trx.update(tRef,{ status:"Принято", acceptedAt: Date.now() });
-    }).then(async ()=>{
-      await logEvent("transfer.accept",{ transferId:id, pointId:t.pointId, pointName:t.pointName||t.pointEmail });
-    }).catch(e=>alert("Ошибка при принятии: "+e.message));
+    }).then(async ()=>{ await logEvent("transfer.accept",{ transferId:id, pointId:t.pointId, pointName:t.pointName||t.pointEmail }); })
+      .catch(e=>alert("Ошибка при принятии: "+e.message));
   }
 
+  // Админ: вода (с фильтром)
   function renderAdminWater(){
     fillPointFilter("waterPointFilter");
     const sel = qs("waterPointFilter");
-    const render = (docs)=>{
+    let current = [];
+    const unsub = onSnapshot(query(collection(db,"waters"), orderBy("date","desc")), snap=>{ current = snap.docs.map(d=>({ id:d.id, ...d.data() })); render(); });
+    state.unsub.push(unsub);
+    sel.onchange = render;
+
+    function render(){
+      fillPointFilter("waterPointFilter");
       const pid = sel.value;
-      const list = docs
-        .map(d=>({ id:d.id, ...d.data() }))
-        .filter(w=>!pid || w.pointId===pid)
-        .sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+      const list = current.filter(w=>!pid || w.pointId===pid);
       const rows=list.map(w=>{
         const cls=w.status==="Завершен"?"ok":"warn";
         return `<tr>
@@ -535,21 +545,22 @@
       qs("adminWaterTable").querySelectorAll("[data-done]").forEach(b=>{
         b.onclick=async ()=>{ await updateDoc(doc(db,"waters",b.dataset.done),{ status:"Завершен" }); await logEvent("water.done",{ id:b.dataset.done }); };
       });
-    };
-    const unsub = onSnapshot(query(collection(db,"waters"), orderBy("date","desc")), snap=>render(snap.docs));
-    state.unsub.push(unsub);
-    sel.onchange=()=>{};
+    }
   }
 
+  // Админ: инкассации (с фильтром)
   function renderAdminCash(){
     fillPointFilter("cashPointFilter");
     const sel = qs("cashPointFilter");
-    const render = (docs)=>{
+    let current = [];
+    const unsub = onSnapshot(query(collection(db,"cashes"), orderBy("date","desc")), snap=>{ current = snap.docs.map(d=>({ id:d.id, ...d.data() })); render(); });
+    state.unsub.push(unsub);
+    sel.onchange = render;
+
+    function render(){
+      fillPointFilter("cashPointFilter");
       const pid = sel.value;
-      const list = docs
-        .map(d=>({ id:d.id, ...d.data() }))
-        .filter(c=>!pid || c.pointId===pid)
-        .sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+      const list = current.filter(c=>!pid || c.pointId===pid);
       const rows=list.map(c=>{
         const diff=((Number(c.meter||0)-Number(c.reported||0))||0).toFixed(2);
         const cls=Math.abs(diff)<0.01?"ok":(diff>0?"warn":"bad");
@@ -564,21 +575,22 @@
       qs("adminCashTable").querySelectorAll("[data-mid]").forEach(inp=>{
         inp.oninput=async ()=>{ await updateDoc(doc(db,"cashes",inp.dataset.mid),{ meter:Number(inp.value||0) }); await logEvent("cash.meter.update",{ id:inp.dataset.mid, meter:Number(inp.value||0) }); };
       });
-    };
-    const unsub = onSnapshot(query(collection(db,"cashes"), orderBy("date","desc")), snap=>render(snap.docs));
-    state.unsub.push(unsub);
-    sel.onchange=()=>{};
+    }
   }
 
+  // Админ: история
   function renderAdminHistory(){
     fillPointFilter("histPointFilter");
     const sel=qs("histPointFilter");
-    const render = (docs)=>{
+    let current=[];
+    const unsub = onSnapshot(collection(db,"logs"), snap=>{ current=snap.docs.map(d=>({ id:d.id, ...d.data() })); render(); });
+    state.unsub.push(unsub);
+    sel.onchange=render;
+
+    function render(){
+      fillPointFilter("histPointFilter");
       const pid = sel.value;
-      const list = docs
-        .map(d=>({ id:d.id, ...d.data() }))
-        .filter(x=>!pid || x.pointId===pid)
-        .sort((a,b)=> Number(b.at||0)-Number(a.at||0));
+      const list = current.filter(x=>!pid || x.pointId===pid).sort((a,b)=>Number(b.at||0)-Number(a.at||0));
       const rows = list.map(l=>{
         const dt = new Date(l.at||Date.now()).toLocaleString("ru-RU");
         let text = "";
@@ -589,7 +601,7 @@
           case "inventory.out": text = `Списание по ${l.sku} -${l.sub}, остаток ${l.qty}`; break;
           case "inventory.delete": text = `Удален товар ${l.sku}`; break;
           case "point.create": text = `Создана точка «${l.pointName||l.pointEmail||l.pointId}»`; break;
-          case "point.update": text = `Обновлена точка ${l.pointId}: ${l.name||l.address?('name='+ (l.name||'')+', address='+(l.address||'')):""}`; break;
+          case "point.update": text = `Обновлена точка ${l.pointId}`; break;
           case "point.delete": text = `Удалена точка ${l.pointId}`; break;
           case "transfer.create": text = `Заявка от ${l.pointName||l.pointEmail}: ${l.itemsText||""}`; break;
           case "transfer.accept": text = `Заявка принята для ${l.pointName||l.pointId}`; break;
@@ -602,104 +614,68 @@
         return `<tr><td class="muted" style="width:180px">${dt}</td><td>${text}</td><td class="muted">${l.by||""}</td></tr>`;
       }).join("");
       qs("adminHistoryTable").innerHTML = `<table><thead><tr><th>Когда</th><th>Событие</th><th>Кем</th></tr></thead><tbody>${rows||`<tr><td colspan="3" class="muted">История пуста</td></tr>`}</tbody></table>`;
-    };
-    const unsub = onSnapshot(collection(db,"logs"), snap=>render(snap.docs));
-    state.unsub.push(unsub);
-    sel.onchange=()=>{};
+    }
   }
 
+  // Админ: статистика
   function renderAdminStats(){
-    fillPointFilter("statsPointFilter");
+    function periodToRange(kind){
+      const d = new Date(); const to = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      let from = new Date(to);
+      if(kind==="yesterday"){ from.setDate(from.getDate()-1); to.setDate(to.getDate()-1); }
+      if(kind==="week"){ from.setDate(from.getDate()-6); }
+      if(kind==="month"){ from.setDate(1); }
+      return { from: from.toISOString().slice(0,10), to: to.toISOString().slice(0,10) };
+    }
     const sel = qs("statsPointFilter");
     const per = qs("statsPeriod"), dFrom=qs("statsFrom"), dTo=qs("statsTo");
+    fillPointFilter("statsPointFilter");
 
-    const setRangeByPeriod = ()=>{
+    let transfers=[], waters=[], invNames={};
+    const unsubT = onSnapshot(collection(db,"transfers"), s=>{ transfers=s.docs.map(d=>({id:d.id,...d.data()})); render(); });
+    const unsubW = onSnapshot(collection(db,"waters"), s=>{ waters=s.docs.map(d=>({id:d.id,...d.data()})); render(); });
+    const unsubI = onSnapshot(collection(db,"inventory"), s=>{ invNames={}; s.docs.forEach(d=>invNames[d.id]=d.data().name); render(); });
+    state.unsub.push(unsubT,unsubW,unsubI);
+
+    function updatePeriod(){
       const k = per.value;
-      const r = periodToRange(k);
       if(k==="custom"){ dFrom.disabled=false; dTo.disabled=false; }
-      else { dFrom.disabled=true; dTo.disabled=true; dFrom.value=r.from; dTo.value=r.to; }
+      else { const r=periodToRange(k); dFrom.value=r.from; dTo.value=r.to; dFrom.disabled=true; dTo.disabled=true; }
       render();
-    };
-    per.onchange = setRangeByPeriod; setRangeByPeriod();
-
-    dFrom.onchange = render; dTo.onchange = render; sel.onchange=render;
-
-    let unsubTransfers=null, unsubWaters=null;
-    const cache = { transfers:[], waters:[] };
-
-    function within(dateStr){
-      const a = dFrom.value || "0000-01-01", b = dTo.value || "9999-12-31";
-      return (!dateStr?false : (dateStr>=a && dateStr<=b));
     }
+    per.onchange=updatePeriod; dFrom.onchange=render; dTo.onchange=render; sel.onchange=render; updatePeriod();
+
+    function inRange(d){ const a=dFrom.value||"0000-01-01", b=dTo.value||"9999-12-31"; return d>=a && d<=b; }
 
     function render(){
-      const pid = sel.value || "";
-      // transfers
-      const map = {}; // date -> sku -> qty
-      cache.transfers.filter(t=>within(t.date) && (!pid || t.pointId===pid)).forEach(t=>{
+      fillPointFilter("statsPointFilter");
+      const pid = sel.value||"";
+
+      // Transfers
+      const map={}; const skus=new Set();
+      transfers.filter(t=>inRange(t.date||"") && (!pid || t.pointId===pid)).forEach(t=>{
         if(!map[t.date]) map[t.date]={};
-        (t.items||[]).forEach(i=>{
-          map[t.date][i.sku]=(map[t.date][i.sku]||0)+Number(i.qty||0);
-        });
+        (t.items||[]).forEach(i=>{ map[t.date][i.sku]=(map[t.date][i.sku]||0)+Number(i.qty||0); skus.add(i.sku); });
       });
-      // products list for headers
-      const allSkus = new Set();
-      Object.values(map).forEach(m=>Object.keys(m).forEach(s=>allSkus.add(s)));
-      const prodNames = {}; // sku->name
-      // build product names from latest inventory snapshot
-      // get once
-      onSnapshot(collection(db,"inventory"), invSnap=>{
-        invSnap.docs.forEach(dd=>{ prodNames[dd.id]=dd.data().name; });
-        const skus=[...allSkus]; skus.sort();
-        const head = skus.map(s=>`<th>${prodNames[s]||s}</th>`).join("");
-        const body = Object.keys(map).sort().map(d=>{
-          const cells = skus.map(s=>`<td>${map[d][s]||""}</td>`).join("");
-          return `<tr><td>${d}</td>${cells}</tr>`;
-        }).join("");
-        qs("statsTransfers").innerHTML = `<div class="muted">Перемещения по датам</div><table><thead><tr><th>Дата</th>${head||''}</tr></thead><tbody>${body || `<tr><td colspan="${1+skus.length}" class="muted">Нет данных</td></tr>`}</tbody></table>`;
-      });
-      // waters
+      const skuList=[...skus].sort();
+      const head = skuList.map(s=>`<th>${invNames[s]||s}</th>`).join("");
+      const body = Object.keys(map).sort().map(d=>{
+        const cells = skuList.map(s=>`<td>${map[d][s]||""}</td>`).join("");
+        return `<tr><td>${d}</td>${cells}</tr>`;
+      }).join("");
+      qs("statsTransfers").innerHTML = `<div class="muted">Перемещения по датам</div><table><thead><tr><th>Дата</th>${head}</tr></thead><tbody>${body || `<tr><td colspan="${1+skuList.length}" class="muted">Нет данных</td></tr>`}</tbody></table>`;
+
+      // Waters
       const byDate={};
-      cache.waters.filter(w=>within(w.date) && (!pid || w.pointId===pid)).forEach(w=>{
+      waters.filter(w=>inRange(w.date||"") && (!pid || w.pointId===pid)).forEach(w=>{
         byDate[w.date]=(byDate[w.date]||0)+Number(w.qty||0);
       });
       const wBody = Object.keys(byDate).sort().map(d=>`<tr><td>${d}</td><td>${byDate[d]}</td></tr>`).join("");
       qs("statsWater").innerHTML=`<div class="muted">Заказы воды (19л)</div><table><thead><tr><th>Дата</th><th>Кол-во</th></tr></thead><tbody>${wBody||`<tr><td colspan="2" class="muted">Нет данных</td></tr>`}</tbody></table>`;
     }
-
-    unsubTransfers = onSnapshot(collection(db,"transfers"), snap=>{ cache.transfers = snap.docs.map(d=>({ id:d.id, ...d.data() })); render(); });
-    unsubWaters = onSnapshot(collection(db,"waters"), snap=>{ cache.waters = snap.docs.map(d=>({ id:d.id, ...d.data() })); render(); });
-    state.unsub.push(unsubTransfers, unsubWaters);
   }
 
-  // 8) Точка
-  async function showPoint(user){
-    // карточка точки
-    const q1=query(collection(db,"points"), where("email","==",(user.email||"").toLowerCase()));
-    const snap=await getDocs(q1);
-    let point=null;
-    if(snap.empty){
-      const ref=await addDoc(collection(db,"points"), { email:(user.email||"").toLowerCase(), uid:user.uid, name:"", address:"" });
-      point={ id:ref.id, email:user.email, uid:user.uid, name:"", address:"" };
-    }else{
-      const d=snap.docs[0];
-      point={ id:d.id, ...d.data() };
-      if(!point.uid) await updateDoc(doc(db,"points",point.id),{ uid:user.uid });
-    }
-    state.myPoint=point;
-    qs("pointBadge").classList.remove("hidden");
-    qs("pointLabel").textContent = point.name || point.email || "(точка)";
-
-    const tabs=[
-      {id:"view-point-stocks",title:"Остатки",active:true},
-      {id:"view-point-water",title:"Вода"},
-      {id:"view-point-cash",title:"Инкассация"},
-    ];
-    renderNav(tabs);
-    showView("view-point-stocks");
-  }
-
-  // Остатки + форма заявки
+  // Точка: Остатки + заявка
   function renderPointStocks(){
     if(!qs("reqDate").value) qs("reqDate").value=today();
     state.unsub.push(onSnapshot(collection(db,"inventory"), snap=>{
@@ -724,68 +700,60 @@
       if(!items.length) return alert("Укажите количества хотя бы по одному товару");
       await addDoc(collection(db,"transfers"), {
         date, items, status:"Новая",
-        pointId: state.myPoint.id, pointName: state.myPoint.name || "", pointEmail: state.myPoint.email || "", pointUid: auth.currentUser.uid,
+        pointId: state.myPoint?.id || "", pointName: state.myPoint?.name || "", pointEmail: state.myPoint?.email || "", pointUid: auth.currentUser.uid,
         createdAt: Date.now()
       });
-      await logEvent("transfer.create",{ pointId: state.myPoint.id, pointName: state.myPoint.name||state.myPoint.email, itemsText: items.map(i=>`${i.name} × ${i.qty}`).join(", ") });
+      await logEvent("transfer.create",{ pointId: state.myPoint?.id, pointName: state.myPoint?.name||state.myPoint?.email, itemsText: items.map(i=>`${i.name} × ${i.qty}`).join(", ") });
       alert("Заявка отправлена");
       renderPointStocks();
     };
   }
 
+  // Точка: Вода (без индекса — сортируем на клиенте)
   function renderPointWater(){
     if(!qs("waterDate").value) qs("waterDate").value=today();
-    const refresh=()=>{
-      const q2=query(collection(db,"waters"), where("pointUid","==",auth.currentUser.uid), orderBy("date","desc"));
-      state.unsub.push(onSnapshot(q2, snap=>{
-        const rows=snap.docs.map(d=>{ const w={id:d.id,...d.data()}; return `<tr><td>${w.date}</td><td>${w.qty}</td><td class="status ${w.status==="Завершен"?"ok":"warn"}">${w.status||"Новый"}</td></tr>`; }).join("");
-        qs("pointWaterList").innerHTML=`<table><thead><tr><th>Дата</th><th>Бутыли</th><th>Статус</th></tr></thead><tbody>${rows||`<tr><td colspan="3" class="muted">Пока нет</td></tr>`}</tbody></table>`;
-      }));
-    };
-    refresh();
+    const unsub = onSnapshot(query(collection(db,"waters"), where("pointUid","==",auth.currentUser.uid)), snap=>{
+      const list = snap.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+      const rows = list.map(w=>`<tr><td>${w.date}</td><td>${w.qty}</td><td class="status ${w.status==="Завершен"?"ok":"warn"}">${w.status||"Новый"}</td></tr>`).join("");
+      qs("pointWaterList").innerHTML=`<table><thead><tr><th>Дата</th><th>Бутыли</th><th>Статус</th></tr></thead><tbody>${rows||`<tr><td colspan="3" class="muted">Пока нет</td></tr>`}</tbody></table>`;
+    });
+    state.unsub.push(unsub);
     qs("sendWaterBtn").onclick=async ()=>{
       const date=qs("waterDate").value||today();
       const qty=Math.max(1, Number(qs("waterQty").value||1));
       await addDoc(collection(db,"waters"), {
         date, qty, status:"Новый",
-        pointId: state.myPoint.id, pointName: state.myPoint.name || "", pointEmail: state.myPoint.email || "", pointUid: auth.currentUser.uid,
+        pointId: state.myPoint?.id || "", pointName: state.myPoint?.name || "", pointEmail: state.myPoint?.email || "", pointUid: auth.currentUser.uid,
         createdAt: Date.now()
       });
-      await logEvent("water.create",{ pointId: state.myPoint.id, pointName: state.myPoint.name||state.myPoint.email, qty });
+      await logEvent("water.create",{ pointId: state.myPoint?.id, pointName: state.myPoint?.name||state.myPoint?.email, qty });
       alert("Заказ воды отправлен");
     };
   }
 
+  // Точка: Инкассации (без индекса — сортируем на клиенте)
   function renderPointCash(){
     if(!qs("cashDate").value) qs("cashDate").value=today();
-    const refresh=()=>{
-      const q2=query(collection(db,"cashes"), where("pointUid","==",auth.currentUser.uid), orderBy("date","desc"));
-      state.unsub.push(onSnapshot(q2, snap=>{
-        const rows=snap.docs.map(d=>{
-          const c={id:d.id,...d.data()};
-          const diff=((Number(c.meter||0)-Number(c.reported||0))||0).toFixed(2);
-          const cls=Math.abs(diff)<0.01?"ok":(diff>0?"warn":"bad");
-          return `<tr>
-            <td>${c.date}</td>
-            <td>${Number(c.reported||0).toFixed(2)}</td>
-            <td class="muted">${c.meter??""}</td>
-            <td class="status ${cls}">${diff}</td>
-          </tr>`;
-        }).join("");
-        qs("pointCashList").innerHTML=`<table><thead><tr><th>Дата</th><th>Отчет ₽</th><th>По метрешке ₽</th><th>Разница</th></tr></thead><tbody>${rows||`<tr><td colspan="4" class="muted">Пока нет</td></tr>`}</tbody></table>`;
-      }));
-    };
-    refresh();
+    const unsub = onSnapshot(query(collection(db,"cashes"), where("pointUid","==",auth.currentUser.uid)), snap=>{
+      const list = snap.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+      const rows=list.map(c=>{
+        const diff=((Number(c.meter||0)-Number(c.reported||0))||0).toFixed(2);
+        const cls=Math.abs(diff)<0.01?"ok":(diff>0?"warn":"bad");
+        return `<tr><td>${c.date}</td><td>${Number(c.reported||0).toFixed(2)}</td><td class="muted">${c.meter??""}</td><td class="status ${cls}">${diff}</td></tr>`;
+      }).join("");
+      qs("pointCashList").innerHTML=`<table><thead><tr><th>Дата</th><th>Отчет ₽</th><th>По метрешке ₽</th><th>Разница</th></tr></thead><tbody>${rows||`<tr><td colspan="4" class="muted">Пока нет</td></tr>`}</tbody></table>`;
+    });
+    state.unsub.push(unsub);
     qs("sendCashBtn").onclick=async ()=>{
       const date=qs("cashDate").value||today();
       const reported=Math.max(0, Number(qs("cashAmt").value||0));
       if(reported<=0) return alert("Введите сумму > 0");
       await addDoc(collection(db,"cashes"), {
         date, reported,
-        pointId: state.myPoint.id, pointName: state.myPoint.name || "", pointEmail: state.myPoint.email || "", pointUid: auth.currentUser.uid,
+        pointId: state.myPoint?.id || "", pointName: state.myPoint?.name || "", pointEmail: state.myPoint?.email || "", pointUid: auth.currentUser.uid,
         createdAt: Date.now()
       });
-      await logEvent("cash.create",{ pointId: state.myPoint.id, pointName: state.myPoint.name||state.myPoint.email, reported });
+      await logEvent("cash.create",{ pointId: state.myPoint?.id, pointName: state.myPoint?.name||state.myPoint?.email, reported });
       alert("Инкассация записана");
       qs("cashAmt").value="";
     };
